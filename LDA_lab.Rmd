@@ -29,8 +29,63 @@ plot(X, col = y+1)
 ```
 
 
+```{r}
+y
+```
+
+
 Implement the Linear Discriminant Analysis (LDA) algorithm that we saw in the last lecture. LDA assumes that each class follows a Gaussian distribution with identical covariance but different means:
 $$p(x|0) = N(x|\mu_0, \Sigma),$$
 $$p(x|1) = N(x|\mu_1, \Sigma).$$
 
 For this, you must infer $\mu_0$, $\mu_1$, and $\Sigma$ using maximum likelihood, as seen in the lectures.
+
+```{r, computation of pi}
+N = dim(X)[1] # number of observations
+
+N1 = sum(y==1) # number of observations in the first class (when y in equal to 1)
+
+pi = N1/N
+```
+
+```{r, computation of mu0}
+mu0 = c(mean(X[y!=1,1]),mean(X[y!=1,2]))
+mu0
+```
+
+```{r, computation of mu1}
+mu1 = c(mean(X[y==1,1]),mean(X[y==1,2]))
+mu1
+```
+
+```{r, computation of Sigma}
+sigma = pi*cov(X[y==1,]) + (1-pi)*cov(X[y!=1,])
+sigma
+```
+
+```{r}
+pxgiven0 = dmvnorm(X, mean = mu0, sigma = sigma) #probability density of the multivariate Gaussian (for the first class)
+
+pxgiven1 = dmvnorm(X, mean = mu1, sigma = sigma) #probability density of the multivariate Gaussian (for the second class)
+```
+
+We can compute the "soft" predictions, i.e. $p(1|x_i)$ for all $i \in \{1,\ldots,n\}$, using Bayes rule:
+
+```{r}
+p1givenx = pxgiven1*pi/(pxgiven1*pi+pxgiven0*(1-pi))
+```
+
+
+To compute "hard" predictions $\hat{y}_i \in \{0,1\}$, we can just hreshold them:
+
+```{r}
+y_hat = p1givenx>0.5
+```
+
+We can finally compute the training error:
+
+```{r}
+mean(y!=y_hat)
+```
+
+
