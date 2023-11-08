@@ -1,0 +1,183 @@
+---
+title: "Untitled"
+author: "CB"
+date: "2023-10-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# The learning process
+
+As I said, the minimal setup implies to split the data in a learning set and a validation set to correctly estimate the classification/regression error:
+
+```{r}
+data(iris)
+?iris
+colnames(iris)
+```
+
+```{r}
+X = iris[,-5]
+Y = iris$Species
+```
+
+Now, we can split the data into the learning and validation set:
+
+```{r}
+# Shuffle the data that are orginally sorted by class
+ord = sample(nrow(X))
+X = X[ord,]; Y = Y[ord]
+
+# Split the data
+learn = 1:100
+X.learn = X[learn,]; Y.learn = Y[learn]
+X.val = X[-learn,]; Y.val = Y[-learn]
+```
+
+Once we have this, we can evaluate the performance of some classification methods. Let's first consider linear discriminant analysis (LDA):
+
+```{r}
+library(MASS)
+# Learning with LDA on the learning set
+f = lda(X.learn,Y.learn)
+```
+
+
+```{r}
+#Prediction of the validation set
+out = predict(f,X.val)
+
+# Compute the validation classification error
+err.lda = sum(Y.val != out$class) / length(Y.val)
+err.lda
+```
+
+To have a better estimate of the error rate of LDA, we should do a V-fold CV:
+
+```{r}
+X = iris[,-5]; Y = iris$Species
+ord = sample(nrow(X))
+X = X[ord,]; Y = Y[ord]
+
+# Define the folds
+V = 15
+fold = rep(1:V,nrow(X)/V)
+err.lda = rep(NA,V)
+
+# Do the CV
+for (v in 1:V){
+  X.learn = X[fold!=v,]; Y.learn = Y[fold!=v]
+  X.val = X[fold==v,]; Y.val = Y[fold==v]
+  f = lda(X.learn,Y.learn)
+  out = predict(f,X.val)
+  err.lda[v] = sum(Y.val != out$class) / length(Y.val)
+}
+
+# Average the resulta
+cat('> LDA:',mean(err.lda),'+/-',sd(err.lda),'\n')
+```
+
+Let's now consider a method with a tuning parameter: kNN.
+
+```{r}
+ord = sample(nrow(X))
+X = X[ord,]; Y = Y[ord]
+
+# Split the data
+learn = 1:100
+X.learn = X[learn,]; Y.learn = Y[learn]
+X.val = X[-learn,]; Y.val = Y[-learn]
+
+# Learning and prediction with kNN
+library(class)
+out = knn(X.learn,X.val,Y.learn,k = 5)
+err.knn = sum(Y.val != out) / length(Y.val)
+err.knn
+```
+
+> Exercise: for next time, plot the effect of changing k on the validation error rate
+
+```{r}
+library(class)
+ord = sample(nrow(X))
+X = X[ord,]; Y = Y[ord]
+
+# Define the folds
+V = 15
+fold = rep(1:V,nrow(X)/V)
+
+# Do the CV
+K.max = 30
+err.knn = matrix(NA,K.max,V)
+for (k in 1:K.max){
+  for (v in 1:V){
+    X.learn = X[fold!=v,]; Y.learn = Y[fold!=v]
+    X.val = X[fold==v,]; Y.val = Y[fold==v]
+    out = knn(X.learn,X.val,Y.learn,k = k)
+    err.knn[k,v] = sum(Y.val != out) / length(Y.val)
+  }
+}
+
+plot(rowMeans(err.knn), type='b')
+```
+
+In order to be able afterward to compare KNN with LDA, we may create a function allowing to choose the best k on a set of data:
+
+```{r}
+knn.cv <- function(X,Y,K.max = 30,V = 15){
+  # Define the folds
+  fold = rep(1:V,nrow(X)/V)
+  
+  # Do the CV
+  err.knn = matrix(NA,K.max,V)
+  for (k in 1:K.max){
+    for (v in 1:V){
+      X.learn = X[fold!=v,]; Y.learn = Y[fold!=v]
+      X.val = X[fold==v,]; Y.val = Y[fold==v]
+      out = knn(X.learn,X.val,Y.learn,k = k)
+      err.knn[k,v] = sum(Y.val != out) / length(Y.val)
+    }
+  }
+  return(which.min(rowMeans(err.knn)))
+}
+```
+
+> Exercise: write a code allowing to compare the performances of LDA and KNN with double-CV.
+
+```{r}
+X = iris[,-5]; Y = iris$Species
+ord = sample(nrow(X))
+X = X[ord,]; Y = Y[ord]
+
+# Define the folds
+V = 15
+fold = rep(1:V,nrow(X)/V)
+err.lda = rep(NA,V)
+err.knn = rep(NA,V)
+
+# Do the CV
+for (v in 1:V){
+  X.learn = X[fold!=v,]; Y.learn = Y[fold!=v]
+  X.val = X[fold==v,]; Y.val = Y[fold==v]
+  
+  # LDA
+  f = lda(X.learn,Y.learn)
+  out = predict(f,X.val)
+  err.lda[v] = sum(Y.val != out$class) / length(Y.val)
+  
+  # KNN
+  k.star = knn.cv(X.learn,Y.learn,K.max = 30,V = 15)
+  out = knn(X.learn,X.val,Y.learn,k = k.star)
+  err.knn[v] = sum(Y.val != out) / length(Y.val)
+}
+
+# Average the result
+cat('> LDA:',mean(err.lda),'+/-',sd(err.lda),'\n')
+cat('> KNN:',mean(err.knn),'+/-',sd(err.knn),'\n')
+```
+
+
+
