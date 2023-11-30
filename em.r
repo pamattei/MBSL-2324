@@ -1,11 +1,16 @@
 library(MASS)
 
-my_em <- function(X,K,nit=50,eps=1e-5,nb.em=10,disp=FALSE){
-  logLik = rep(NA,nb.em)
-  out = replicate(nb.em,em(X,K,nit,eps,disp), simplify = "array")
-  for (i in 1:nb.em) logLik[i] = out[,i]$logLik
-  plot(logLik)
-  return(out[,which.max(logLik)])
+my_em <- function(X,K=1:10,nit=50,eps=1e-5,nb.em=10,disp=FALSE){
+  bic = rep(NA,length(K))
+  res = list()
+  for (k in K){
+    logLik = rep(NA,nb.em)
+    out = replicate(nb.em,em(X,k,nit,eps,disp), simplify = "array")
+    for (i in 1:nb.em) logLik[i] = out[,i]$logLik
+    if (disp) plot(logLik)
+    res[[k]] = out[,which.max(logLik)]
+  }
+  return(res)
 }
 
 em <- function(X,K,nit=50,eps=1e-5,disp=TRUE){
@@ -74,4 +79,4 @@ em.bic <- function(ll,K,p,n){
 X = rbind(rmvnorm(100,mean = c(0,0)),
           rmvnorm(100,mean = c(-10,-10)),
           rmvnorm(100,mean = c(-10,10)))
-res = my_em(X,3,nb.em = 10)
+res = my_em(X,1:5,nb.em = 3)
