@@ -1,5 +1,14 @@
 library(MASS)
-em <- function(X,K,nit=50,eps=1e-5){
+
+my_em <- function(X,K,nit=50,eps=1e-5,nb.em=10,disp=FALSE){
+  logLik = rep(NA,nb.em)
+  out = replicate(nb.em,em(X,K,nit,eps,disp), simplify = "array")
+  for (i in 1:nb.em) logLik[i] = out[,i]$logLik
+  plot(logLik)
+  return(out[,which.max(logLik)])
+}
+
+em <- function(X,K,nit=50,eps=1e-5,disp=TRUE){
 	# Initialisation
 	N = nrow(X)
 	p = ncol(X)
@@ -15,15 +24,18 @@ em <- function(X,K,nit=50,eps=1e-5){
     T = resEstep$T
     ll[i+1] = resEstep$ll
     # Visualization
-    plot(X,pch=19,col=max.col(T))
-    for(k in 1:K) points(prms$m[k,1],prms$m[k,2],pch="*",cex=5,col=k)
-    Sys.sleep(0.05)
+    if (disp) {
+      plot(X,pch=19,col=max.col(T))
+      for(k in 1:K) points(prms$m[k,1],prms$m[k,2],pch="*",cex=5,col=k)
+      Sys.sleep(0.05)
+    }
 		if (abs(ll[i+1]-ll[i]) < N*eps) break
 	}
-	plot(res$ll,type='b')
+	if (disp) plot(res$ll,type='b')
+	logLik = ll[i]
 	bic = em.bic(ll[i],K,p,N)
 	cat('\n')
-	list(T=T,cls=max.col(T),prms=prms,ll=ll,bic=bic)
+	list(T=T,cls=max.col(T),prms=prms,ll=ll,bic=bic,logLik=logLik)
 }
 
 em.estep <- function(X,K,prms){
@@ -62,4 +74,4 @@ em.bic <- function(ll,K,p,n){
 X = rbind(rmvnorm(100,mean = c(0,0)),
           rmvnorm(100,mean = c(-10,-10)),
           rmvnorm(100,mean = c(-10,10)))
-res = em(X,3)
+res = my_em(X,3,nb.em = 10)
